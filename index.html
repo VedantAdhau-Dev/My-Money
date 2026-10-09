@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#f5f7fb">
+<meta name="description" content="A simple personal expense tracker with daily allowance, special expenses, charts, and local backups.">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<title>My Money — Expense Tracker</title>
+<style>
+:root{
+  --blue:#2563eb;--blue-dark:#1d4ed8;--blue-light:#eff6ff;
+  --ink:#172033;--muted:#687386;--line:#e4e8ef;--paper:#ffffff;--bg:#f5f7fb;
+  --green:#16835d;--green-light:#e9f8f1;--orange:#b86a12;--orange-light:#fff5e8;
+  --red:#c43d45;--radius:14px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,select{font:inherit}
+button{cursor:pointer}
+.app{max-width:1200px;margin:0 auto;padding:28px 24px 48px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:26px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:42px;height:42px;border-radius:12px;background:var(--blue);display:grid;place-items:center;color:white;font-weight:800;font-size:19px}
+.brand h1{font-size:21px;letter-spacing:-.5px;margin:0}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.top-actions{display:flex;gap:10px;align-items:center}
+.date-label{color:var(--muted);font-size:13px}
+.btn{border:1px solid var(--line);background:white;border-radius:9px;padding:10px 14px;color:var(--ink);font-weight:600}
+.btn:hover{background:#f8fafc}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:white}
+.btn.primary:hover{background:var(--blue-dark)}
+.btn.danger{color:var(--red)}
+.section-title{font-size:16px;margin:0 0 14px;letter-spacing:-.2px}
+.grid{display:grid;gap:16px}
+.stats{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:20px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:19px;min-width:0}
+.stat-top{display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--muted);font-size:13px}
+.stat-icon{width:30px;height:30px;display:grid;place-items:center;background:#f1f5f9;border-radius:9px;color:#3e4a5e;font-size:15px}
+.stat-value{font-size:27px;font-weight:750;letter-spacing:-.8px;margin:13px 0 4px;overflow-wrap:anywhere}
+.stat-note{font-size:12px;color:var(--muted)}
+.stat-note.good{color:var(--green)}
+.main-grid{grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);align-items:start}
+.left-stack,.right-stack{display:grid;gap:16px}
+.budget-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.budget-head p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.pill{display:inline-flex;align-items:center;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:650;background:var(--blue-light);color:var(--blue)}
+.progress-track{height:10px;background:#edf0f5;border-radius:99px;overflow:hidden;margin:20px 0 10px}
+.progress-fill{height:100%;width:0;background:var(--blue);border-radius:99px;transition:width .25s}
+.progress-fill.over{background:var(--red)}
+.budget-foot{display:flex;justify-content:space-between;gap:12px;font-size:13px;color:var(--muted)}
+.budget-foot strong{color:var(--ink)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field.full{grid-column:1/-1}
+.field label{font-size:12px;font-weight:700;color:#4b5567}
+.field input,.field select{width:100%;border:1px solid #d8dee8;background:white;border-radius:9px;padding:11px 12px;outline:none;color:var(--ink);min-width:0}
+.field input:focus,.field select:focus{border-color:var(--blue);box-shadow:0 0 0 3px #2563eb18}
+.type-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.type-option{border:1px solid var(--line);border-radius:9px;padding:10px;background:white;text-align:center;font-weight:650;color:var(--muted)}
+.type-option.active{border-color:var(--blue);background:var(--blue-light);color:var(--blue)}
+.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.chart-area{display:flex;align-items:flex-end;gap:10px;height:155px;padding:10px 2px 0;border-bottom:1px solid var(--line)}
+.bar-col{height:100%;flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:7px;min-width:0}
+.bar{width:min(34px,70%);min-height:3px;background:#93b4ff;border-radius:5px 5px 0 0;position:relative}
+.bar.today{background:var(--blue)}
+.bar-label{font-size:11px;color:var(--muted)}
+.chart-legend{display:flex;justify-content:space-between;gap:10px;margin-top:12px;font-size:12px;color:var(--muted)}
+.category-list{display:grid;gap:14px}
+.category-row{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:center}
+.dot{width:9px;height:9px;border-radius:3px;background:var(--blue)}
+.cat-name{font-size:13px}
+.cat-track{height:5px;background:#edf0f5;border-radius:99px;overflow:hidden;margin-top:6px}
+.cat-fill{height:100%;background:var(--blue);border-radius:99px}
+.cat-amount{font-size:13px;font-weight:700}
+.history-card{margin-top:20px}
+.history-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+.history-tools{display:flex;gap:8px;flex-wrap:wrap}
+.history-tools input,.history-tools select{border:1px solid var(--line);border-radius:8px;padding:9px 10px;background:white;color:var(--ink);max-width:100%}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;white-space:nowrap}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:#8791a1;font-weight:700;padding:11px 12px;border-bottom:1px solid var(--line)}
+td{padding:13px 12px;border-bottom:1px solid #edf0f4;font-size:13px}
+tbody tr:last-child td{border-bottom:0}
+.transaction{display:flex;align-items:center;gap:10px}
+.tx-icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#f1f5f9;font-size:15px}
+.tx-title{font-weight:650;color:var(--ink)}
+.tx-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.kind{font-size:11px;font-weight:700;border-radius:6px;padding:4px 7px;background:var(--blue-light);color:var(--blue)}
+.kind.special{background:var(--orange-light);color:var(--orange)}
+.kind.income{background:var(--green-light);color:var(--green)}
+.amount{font-weight:750;font-variant-numeric:tabular-nums}
+.amount.minus{color:var(--ink)}
+.amount.plus{color:var(--green)}
+.icon-btn{border:0;background:transparent;color:#8791a1;border-radius:6px;padding:5px}
+.icon-btn:hover{background:#fff0f0;color:var(--red)}
+.empty{padding:28px 10px;text-align:center;color:var(--muted);font-size:13px}
+.settings-row{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.settings-row p{margin:4px 0 0;color:var(--muted);font-size:12px}
+.settings-row input{width:130px;border:1px solid var(--line);border-radius:9px;padding:10px}
+.small{font-size:12px;color:var(--muted)}
+.footer-note{margin:18px 0 0;text-align:center;color:#8b95a5;font-size:12px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#172033;color:white;padding:11px 16px;border-radius:10px;font-size:13px;box-shadow:0 8px 25px #0002;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+@media(max-width:900px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.main-grid{grid-template-columns:1fr}.right-stack{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.app{padding:18px 13px 32px}.topbar{align-items:flex-start}.date-label{display:none}.brand h1{font-size:19px}.top-actions .btn{padding:9px 10px;font-size:12px}.stats{gap:10px}.card{padding:15px}.stat-value{font-size:23px}.right-stack{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr 1fr}.history-head{align-items:flex-start;flex-direction:column}.history-tools{width:100%}.history-tools input{flex:1;min-width:120px}.history-tools select{flex:1}.budget-foot{font-size:12px}}
+
+/* Backup / restore */
+.backup-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.backup-help{font-size:12px;color:var(--muted);margin:8px 0 0}
+#restoreFile{display:none}
+.backup-status{font-size:12px;margin-top:9px;color:var(--muted)}
+@media(max-width:600px){
+ .app{padding:14px 10px 28px}.topbar{flex-wrap:wrap;gap:12px;margin-bottom:18px}
+ .top-actions{width:100%;display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+ .top-actions .btn{width:100%;white-space:nowrap}.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .card{padding:13px;border-radius:12px}.stat-value{font-size:clamp(19px,5.5vw,24px);letter-spacing:-.5px}
+ .stat-top{font-size:12px}.stat-note{font-size:11px}.main-grid{gap:12px}.left-stack,.right-stack{gap:12px}
+ .form-grid{grid-template-columns:minmax(0,1fr)}.field.full{grid-column:auto}.type-switch{gap:6px}
+ .type-option{font-size:12px;padding:10px 6px}.form-actions .btn{flex:1}.budget-head{align-items:flex-start}
+ .budget-foot{flex-wrap:wrap}.chart-area{height:130px;gap:5px}.bar{width:min(27px,72%)}
+ .history-card{margin-top:12px}.history-tools{display:grid;grid-template-columns:1fr 1fr;width:100%}
+ .history-tools input{grid-column:1/-1;width:100%;min-width:0}.history-tools select{width:100%;min-width:0}
+ .table-wrap{margin:0 -3px}table{min-width:650px}th,td{padding:11px 9px}.backup-actions .btn{flex:1}
+}
+@media(max-width:360px){.brand h1{font-size:17px}.brand p{font-size:11px}.logo{width:36px;height:36px}
+ .stats{grid-template-columns:1fr 1fr}.stat-value{font-size:18px}.top-actions{grid-template-columns:1fr 1fr}.budget-head{flex-direction:column}}
+
+
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --ink:#e8edf5;--muted:#a2adbd;--line:#303b4b;--paper:#18212e;--bg:#0f1722;
+  --blue:#75a7ff;--blue-dark:#9bbcff;--blue-light:#1d3150;
+  --green:#53d5a1;--green-light:#173b32;--orange:#f0b86a;--orange-light:#3c2e1d;
+  --red:#ff8188;
+}
+:root[data-theme="dark"] .logo{background:#316ce0;color:#fff}
+:root[data-theme="dark"] .stat-icon,
+:root[data-theme="dark"] .tx-icon{background:#263244;color:#dce6f5}
+:root[data-theme="dark"] .btn,
+:root[data-theme="dark"] .field input,
+:root[data-theme="dark"] .field select,
+:root[data-theme="dark"] .history-tools input,
+:root[data-theme="dark"] .history-tools select,
+:root[data-theme="dark"] .settings-row input{background:#202b3a;color:var(--ink);border-color:var(--line)}
+:root[data-theme="dark"] .btn.primary{background:#316ce0;border-color:#316ce0;color:white}
+:root[data-theme="dark"] .btn:hover{background:#29374a}
+:root[data-theme="dark"] .btn.primary:hover{background:#2859bb}
+:root[data-theme="dark"] .type-option{background:#202b3a;color:var(--muted);border-color:var(--line)}
+:root[data-theme="dark"] .type-option.active{background:var(--blue-light);color:#a9c8ff;border-color:#527dc3}
+:root[data-theme="dark"] .progress-track,
+:root[data-theme="dark"] .cat-track{background:#2a3545}
+:root[data-theme="dark"] .bar{background:#496ca6}
+:root[data-theme="dark"] .bar.today{background:#75a7ff}
+:root[data-theme="dark"] td{border-bottom-color:#293444}
+:root[data-theme="dark"] .kind{background:#1d3150;color:#a9c8ff}
+:root[data-theme="dark"] .kind.special{background:#3c2e1d;color:#f0c27d}
+:root[data-theme="dark"] .kind.income{background:#173b32;color:#69ddb1}
+:root[data-theme="dark"] .amount.minus{color:var(--ink)}
+:root[data-theme="dark"] .backup-status{color:var(--muted)}
+:root[data-theme="dark"] #budgetStatus{background:#1d3150!important;color:#a9c8ff!important}
+:root[data-theme="dark"] #budgetStatus[style*="255, 240, 240"]{background:#44262b!important;color:#ff9ba0!important}
+:root[data-theme="dark"] .icon-btn:hover{background:#44262b}
+.theme-toggle{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.theme-toggle .theme-symbol{font-size:16px;line-height:1}
+
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">₹</div>
+      <div><h1>My Money</h1><p>A simple view of where your money goes.</p></div>
+    </div>
+    <div class="top-actions"><span class="date-label" id="todayLabel"></span><button class="btn theme-toggle" id="themeToggle" type="button" aria-label="Switch to dark mode"><span class="theme-symbol" id="themeSymbol">☾</span><span id="themeLabel">Dark mode</span></button><button class="btn" id="settingsToggle">Budget settings</button></div>
+  </header>
+
+  <section class="grid stats">
+    <article class="card">
+      <div class="stat-top"><span>Total balance</span><span class="stat-icon">₹</span></div>
+      <div class="stat-value" id="balanceValue">₹0</div><div class="stat-note">Money currently available</div>
+    </article>
+    <article class="card">
+      <div class="stat-top"><span>Today's allowance left</span><span class="stat-icon">◷</span></div>
+      <div class="stat-value" id="allowanceLeft">₹0</div><div class="stat-note" id="allowanceNote">Daily limit: ₹0</div>
+    </article>
+    <article class="card">
+      <div class="stat-top"><span>Spent today</span><span class="stat-icon">↗</span></div>
+      <div class="stat-value" id="spentToday">₹0</div><div class="stat-note">Everyday expenses only</div>
+    </article>
+    <article class="card">
+      <div class="stat-top"><span>Special spending this month</span><span class="stat-icon">☆</span></div>
+      <div class="stat-value" id="specialMonth">₹0</div><div class="stat-note">Books, trips and one-off buys</div>
+    </article>
+  </section>
+
+  <section class="grid main-grid">
+    <div class="left-stack">
+      <article class="card">
+        <div class="budget-head"><div><h2 class="section-title">Today's daily budget</h2><p id="budgetSubtitle">Keep everyday spending within your limit.</p></div><span class="pill" id="budgetStatus">On track</span></div>
+        <div class="progress-track"><div class="progress-fill" id="dailyProgress"></div></div>
+        <div class="budget-foot"><span><strong id="budgetSpentLabel">₹0</strong> used</span><span><strong id="budgetTotalLabel">₹0</strong> daily limit</span></div>
+      </article>
+
+      <article class="card">
+        <h2 class="section-title">Add a transaction</h2>
+        <div class="type-switch" style="margin-bottom:14px">
+          <button class="type-option active" type="button" data-kind="everyday">Everyday expense</button>
+          <button class="type-option" type="button" data-kind="special">Special expense</button>
+        </div>
+        <form id="transactionForm">
+          <div class="form-grid">
+            <div class="field"><label for="amount">Amount (₹)</label><input id="amount" type="number" min="0.01" step="0.01" placeholder="e.g. 80" required></div>
+            <div class="field"><label for="category">Category</label><select id="category" required></select></div>
+            <div class="field full"><label for="description">What was it for?</label><input id="description" type="text" maxlength="80" placeholder="e.g. Lunch, bus ticket, new book" required></div>
+            <div class="field"><label for="txDate">Date</label><input id="txDate" type="date" required></div>
+            <div class="field"><label for="payment">Payment method (optional)</label><select id="payment"><option value="">Not specified</option><option>Cash</option><option>UPI</option><option>Card</option><option>Bank transfer</option></select></div>
+          </div>
+          <div class="form-actions"><button type="reset" class="btn" id="clearForm">Clear</button><button type="submit" class="btn primary">Save transaction</button></div>
+        </form>
+      </article>
+
+      <article class="card" id="settingsCard" hidden>
+        <h2 class="section-title">Your money & limits</h2>
+        <div class="form-grid">
+          <div class="field"><label for="startingBalance">Current starting balance (₹)</label><input id="startingBalance" type="number" min="0" step="0.01" placeholder="e.g. 5000"></div>
+          <div class="field"><label for="dailyLimit">Everyday limit per day (₹)</label><input id="dailyLimit" type="number" min="0" step="0.01" placeholder="e.g. 200"></div>
+          <div class="field full"><label for="balanceDate">Balance applies from</label><input id="balanceDate" type="date"></div>
+        </div>
+        <p class="small">Set the balance you have right now when you first start. Transactions dated on or after that date change this balance. Special expenses reduce your total balance, but do not use up your everyday allowance.</p>
+        <div class="form-actions"><button class="btn primary" id="saveSettings" type="button">Save settings</button></div>
+      </article>
+    </div>
+
+    <div class="right-stack">
+      <article class="card">
+        <h2 class="section-title">Spending this week</h2>
+        <p class="small" style="margin:-7px 0 4px">Everyday + special expenses</p>
+        <div class="chart-area" id="weeklyChart" aria-label="Weekly spending chart"></div>
+        <div class="chart-legend"><span>Daily total</span><strong id="weekTotal">₹0 spent</strong></div>
+      </article>
+      <article class="card">
+        <h2 class="section-title">Where it went this month</h2>
+        <div class="category-list" id="categoryBreakdown"></div>
+        <div class="empty" id="categoryEmpty" hidden>No expenses recorded this month.</div>
+      </article>
+    </div>
+  </section>
+
+
+  <section class="card" style="margin-top:20px" id="backupCard">
+    <h2 class="section-title">Backup &amp; restore</h2>
+    <p class="small">Your tracker data is saved in this browser using localStorage. Download a backup file to keep a safe copy or move your data to another device.</p>
+    <div class="backup-actions">
+      <button class="btn primary" type="button" id="exportBackup">Download backup</button>
+      <button class="btn" type="button" id="chooseRestore">Restore from backup</button>
+      <button class="btn" type="button" id="importMerge">Import and merge</button>
+      <input type="file" id="restoreFile" accept=".json,application/json">
+    </div>
+    <p class="backup-help"><strong>Restore</strong> replaces current tracker data. <strong>Import and merge</strong> keeps current entries and adds backup entries that aren't already present.</p>
+    <div class="backup-status" id="backupStatus" role="status" aria-live="polite"></div>
+  </section>
+
+  <section class="card history-card">
+    <div class="history-head">
+      <div><h2 class="section-title" style="margin-bottom:3px">Transaction history</h2><div class="small" id="historyCount">Every transaction, in one place.</div></div>
+      <div class="history-tools"><input id="historySearch" type="search" placeholder="Search history…"><select id="historyType"><option value="all">All types</option><option value="everyday">Everyday</option><option value="special">Special</option><option value="income">Money added</option></select><select id="historyMonth"><option value="all">All dates</option></select></div>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr><th>Transaction</th><th>Date</th><th>Type</th><th>Payment</th><th style="text-align:right">Amount</th><th></th></tr></thead><tbody id="historyBody"></tbody></table>
+      <div class="empty" id="historyEmpty" hidden>No transactions yet. Add your first one above.</div>
+    </div>
+  </section>
+  <p class="footer-note">Your data stays in this browser on this device. Export a backup regularly if you need to keep it safe.</p>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+(() => {
+  const STORAGE_KEY = 'myMoneyTracker_v1';
+  const categories = {
+    everyday: ['Food & drinks','Transport','College','Snacks','Personal care','Other'],
+    special: ['Books','Travel / outing','Clothes','Electronics','Gifts','Other'],
+    income: ['Pocket money','Salary / stipend','Gift','Other money added']
+  };
+  const symbols = {'Food & drinks':'☕','Transport':'🚌','College':'▤','Snacks':'◉','Personal care':'✦','Books':'▣','Travel / outing':'↗','Clothes':'▤','Electronics':'▣','Gifts':'◇','Other':'•','Pocket money':'＋','Salary / stipend':'＋','Gift':'◇','Other money added':'＋'};
+  const $ = id => document.getElementById(id);
+  const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+  const monthKey = d => d.slice(0,7);
+  const money = n => '₹' + Number(n || 0).toLocaleString('en-IN',{maximumFractionDigits:2,minimumFractionDigits:0});
+  const dateLabel = s => s ? new Date(s+'T12:00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
+  const initialState = () => ({startingBalance:0,dailyLimit:200,balanceDate:todayISO(),transactions:[]});
+  let state;
+  try { state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || initialState(); } catch { state = initialState(); }
+  if (!Array.isArray(state.transactions)) state.transactions = [];
+  if (typeof state.startingBalance !== 'number') state.startingBalance = Number(state.startingBalance)||0;
+  if (typeof state.dailyLimit !== 'number') state.dailyLimit = Number(state.dailyLimit)||0;
+  let activeKind = 'everyday';
+  let toastTimer;
+
+  function persist(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+  function showToast(message){ const t=$('toast'); t.textContent=message; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200); }
+  function setCategoryOptions(){
+    const list = categories[activeKind];
+    $('category').innerHTML = list.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+    document.querySelectorAll('.type-option').forEach(b=>b.classList.toggle('active',b.dataset.kind===activeKind));
+    $('description').placeholder = activeKind==='special' ? 'e.g. Bought a novel, day trip' : 'e.g. Lunch, bus ticket';
+  }
+  function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function signedAmount(t){ return t.type==='income' ? Number(t.amount) : -Number(t.amount); }
+  function isExpense(t){return t.type==='everyday'||t.type==='special';}
+  function allTimeBalance(){return Number(state.startingBalance)+state.transactions.filter(t=>t.date>=state.balanceDate).reduce((sum,t)=>sum+signedAmount(t),0);}
+  function expensesOn(date, type){return state.transactions.filter(t=>t.date===date && isExpense(t) && (!type||t.type===type)).reduce((s,t)=>s+Number(t.amount),0);}
+  function render(){
+    const today=todayISO(), month=monthKey(today);
+    $('todayLabel').textContent = new Date().toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+    const balance=allTimeBalance(), spentToday=expensesOn(today,'everyday'), left=Number(state.dailyLimit)-spentToday;
+    $('balanceValue').textContent=money(balance);
+    $('allowanceLeft').textContent=money(left);
+    $('allowanceLeft').style.color=left<0?'var(--red)':'var(--ink)';
+    $('allowanceNote').textContent='Daily limit: '+money(state.dailyLimit);
+    $('spentToday').textContent=money(spentToday);
+    $('specialMonth').textContent=money(state.transactions.filter(t=>t.type==='special'&&monthKey(t.date)===month).reduce((s,t)=>s+Number(t.amount),0));
+    $('budgetSpentLabel').textContent=money(spentToday);
+    $('budgetTotalLabel').textContent=money(state.dailyLimit);
+    $('budgetSubtitle').textContent=left<0?'You are over your everyday limit. Keep an eye on the next purchase.':'Everyday spending only. Special expenses are tracked separately.';
+    const pct=state.dailyLimit>0?Math.min(100,spentToday/state.dailyLimit*100):(spentToday>0?100:0);
+    $('dailyProgress').style.width=pct+'%'; $('dailyProgress').classList.toggle('over',left<0);
+    $('budgetStatus').textContent=left<0?'Over limit':(left===0?'Limit reached':'On track');
+    $('budgetStatus').style.background=left<0?'#fff0f0':'var(--blue-light)';
+    $('budgetStatus').style.color=left<0?'var(--red)':'var(--blue)';
+    renderWeekly(today); renderCategories(month); renderHistory();
+    $('startingBalance').value=state.startingBalance;
+    $('dailyLimit').value=state.dailyLimit;
+    $('balanceDate').value=state.balanceDate||today;
+  }
+  function renderWeekly(today){
+    const base=new Date(today+'T12:00:00'); const days=[];
+    for(let i=6;i>=0;i--){const d=new Date(base);d.setDate(base.getDate()-i);const iso=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;days.push({iso,label:d.toLocaleDateString('en-IN',{weekday:'short'}),value:expensesOn(iso)});}
+    const max=Math.max(1,...days.map(d=>d.value));
+    $('weeklyChart').innerHTML=days.map(d=>`<div class="bar-col" title="${escapeHtml(dateLabel(d.iso))}: ${money(d.value)}"><div class="bar ${d.iso===today?'today':''}" style="height:${Math.max(d.value>0?4:2,d.value/max*100)}%"></div><span class="bar-label">${d.label}</span></div>`).join('');
+    $('weekTotal').textContent=money(days.reduce((s,d)=>s+d.value,0))+' spent';
+  }
+  function renderCategories(month){
+    const sums={};
+    state.transactions.filter(t=>isExpense(t)&&monthKey(t.date)===month).forEach(t=>{sums[t.category]=(sums[t.category]||0)+Number(t.amount);});
+    const rows=Object.entries(sums).sort((a,b)=>b[1]-a[1]); const max=rows.length?rows[0][1]:1;
+    $('categoryBreakdown').innerHTML=rows.map(([name,value],i)=>`<div class="category-row"><span class="dot" style="background:${['#2563eb','#16835d','#d97706','#8b5cf6','#0891b2','#dc5662'][i%6]}"></span><div><div class="cat-name">${escapeHtml(name)}</div><div class="cat-track"><div class="cat-fill" style="width:${value/max*100}%;background:${['#2563eb','#16835d','#d97706','#8b5cf6','#0891b2','#dc5662'][i%6]}"></div></div></div><span class="cat-amount">${money(value)}</span></div>`).join('');
+    $('categoryEmpty').hidden=rows.length>0;
+  }
+  function renderHistory(){
+    const search=$('historySearch').value.trim().toLowerCase(), type=$('historyType').value, month=$('historyMonth').value;
+    const months=[...new Set(state.transactions.map(t=>monthKey(t.date)))].sort().reverse();
+    const oldMonth=$('historyMonth').value;
+    $('historyMonth').innerHTML='<option value="all">All dates</option>'+months.map(m=>`<option value="${m}">${new Date(m+'-15T12:00:00').toLocaleDateString('en-IN',{month:'long',year:'numeric'})}</option>`).join('');
+    if(months.includes(oldMonth)) $('historyMonth').value=oldMonth;
+    const chosenMonth=$('historyMonth').value;
+    const list=[...state.transactions].sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt).filter(t=>{
+      const matchesType=type==='all'||t.type===type;
+      const matchesMonth=chosenMonth==='all'||monthKey(t.date)===chosenMonth;
+      const text=(t.description+' '+t.category+' '+(t.payment||'')).toLowerCase();
+      return matchesType&&matchesMonth&&text.includes(search);
+    });
+    $('historyCount').textContent=`${list.length} transaction${list.length===1?'':'s'} shown`;
+    $('historyBody').innerHTML=list.map(t=>{
+      const income=t.type==='income', kindLabel=income?'Money added':t.type==='special'?'Special':'Everyday';
+      return `<tr><td><div class="transaction"><div class="tx-icon">${symbols[t.category]||'•'}</div><div><div class="tx-title">${escapeHtml(t.description)}</div><div class="tx-sub">${escapeHtml(t.category)}</div></div></div></td><td>${dateLabel(t.date)}</td><td><span class="kind ${t.type}">${kindLabel}</span></td><td>${escapeHtml(t.payment||'—')}</td><td style="text-align:right" class="amount ${income?'plus':'minus'}">${income?'+':'−'}${money(t.amount)}</td><td><button class="icon-btn" data-delete="${t.id}" title="Delete transaction" aria-label="Delete transaction">✕</button></td></tr>`;
+    }).join('');
+    $('historyEmpty').hidden=list.length>0;
+  }
+  document.querySelectorAll('.type-option').forEach(b=>b.addEventListener('click',()=>{activeKind=b.dataset.kind;setCategoryOptions();}));
+  $('transactionForm').addEventListener('submit',e=>{
+    e.preventDefault();
+    const amount=Number($('amount').value), description=$('description').value.trim(), date=$('txDate').value;
+    if(!Number.isFinite(amount)||amount<=0){showToast('Enter an amount greater than zero.');return;}
+    if(!description||!date){showToast('Please complete the description and date.');return;}
+    if(date<state.balanceDate){showToast('This date is before your balance start date. Change the date or balance start date.');return;}
+    const tx={id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),type:activeKind,amount,category:$('category').value,description,date,payment:$('payment').value,createdAt:Date.now()};
+    state.transactions.push(tx);persist();$('transactionForm').reset();$('txDate').value=todayISO();setCategoryOptions();render();showToast('Transaction saved.');
+  });
+  $('clearForm').addEventListener('click',()=>setTimeout(()=>{$('txDate').value=todayISO();setCategoryOptions();},0));
+  $('historyBody').addEventListener('click',e=>{
+    const b=e.target.closest('[data-delete]');if(!b)return;
+    const tx=state.transactions.find(t=>t.id===b.dataset.delete);if(!tx)return;
+    if(confirm(`Delete "${tx.description}" (${money(tx.amount)}) from history?`)){state.transactions=state.transactions.filter(t=>t.id!==tx.id);persist();render();showToast('Transaction deleted.');}
+  });
+  $('settingsToggle').addEventListener('click',()=>{$('settingsCard').hidden=!$('settingsCard').hidden;if(!$('settingsCard').hidden)$('settingsCard').scrollIntoView({behavior:'smooth',block:'nearest'});});
+  $('saveSettings').addEventListener('click',()=>{
+    const balance=Number($('startingBalance').value),limit=Number($('dailyLimit').value),date=$('balanceDate').value;
+    if(!Number.isFinite(balance)||balance<0||!Number.isFinite(limit)||limit<0||!date){showToast('Enter a valid balance, limit and start date.');return;}
+    state.startingBalance=balance;state.dailyLimit=limit;state.balanceDate=date;persist();render();showToast('Budget settings saved.');
+  });
+  ['historySearch','historyType','historyMonth'].forEach(id=>$(id).addEventListener(id==='historySearch'?'input':'change',renderHistory));
+  // A small, explicit way to record new money without treating it as an expense.
+  const incomeButton=document.createElement('button');incomeButton.className='btn';incomeButton.textContent='+ Add money';incomeButton.id='addIncome';
+  $('settingsToggle').parentElement.insertBefore(incomeButton,$('settingsToggle'));
+  incomeButton.addEventListener('click',()=>{
+    const raw=prompt('How much money are you adding? (₹)');
+    if(raw===null)return;const amount=Number(raw);
+    if(!Number.isFinite(amount)||amount<=0){showToast('Enter a valid amount.');return;}
+    const description=(prompt('Source (e.g. pocket money, gift):')||'Money added').trim()||'Money added';
+    const category=categories.income.find(c=>c.toLowerCase()===description.toLowerCase())||'Other money added';
+    state.transactions.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),type:'income',amount,category,description,date:todayISO(),payment:'',createdAt:Date.now()});
+    persist();render();showToast('Money added to your balance.');
+  });
+
+  function backupPayload(){return {app:'My Money Expense Tracker',formatVersion:1,exportedAt:new Date().toISOString(),data:{startingBalance:Number(state.startingBalance)||0,dailyLimit:Number(state.dailyLimit)||0,balanceDate:state.balanceDate||todayISO(),transactions:state.transactions}};}
+  function setBackupStatus(message,isError=false){const el=$('backupStatus');el.textContent=message;el.style.color=isError?'var(--red)':'var(--muted)';}
+  $('exportBackup').addEventListener('click',()=>{try{const blob=new Blob([JSON.stringify(backupPayload(),null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`my-money-backup-${todayISO()}.json`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);setBackupStatus('Backup downloaded. Keep the JSON file somewhere safe.');showToast('Backup downloaded.');}catch(err){setBackupStatus('Could not create a backup in this browser.',true);}});
+  let restoreMode='replace';
+  $('chooseRestore').addEventListener('click',()=>{restoreMode='replace';$('restoreFile').value='';$('restoreFile').click();});
+  $('importMerge').addEventListener('click',()=>{restoreMode='merge';$('restoreFile').value='';$('restoreFile').click();});
+  function validateBackup(parsed){
+    const data=parsed&&parsed.data?parsed.data:parsed;
+    if(!data||typeof data!=='object'||!Array.isArray(data.transactions))throw new Error('This file does not look like a My Money backup.');
+    const startingBalance=Number(data.startingBalance),dailyLimit=Number(data.dailyLimit);
+    if(!Number.isFinite(startingBalance)||startingBalance<0||!Number.isFinite(dailyLimit)||dailyLimit<0)throw new Error('The backup has an invalid balance or daily limit.');
+    if(typeof data.balanceDate!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(data.balanceDate))throw new Error('The backup is missing a valid balance start date.');
+    const allowed=['everyday','special','income'];
+    const transactions=data.transactions.map((t,i)=>{if(!t||typeof t!=='object')throw new Error(`Transaction ${i+1} is invalid.`);const amount=Number(t.amount);if(!Number.isFinite(amount)||amount<=0)throw new Error(`Transaction ${i+1} has an invalid amount.`);if(!allowed.includes(t.type))throw new Error(`Transaction ${i+1} has an unknown type.`);if(typeof t.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(t.date))throw new Error(`Transaction ${i+1} has an invalid date.`);const id=(typeof t.id==='string'&&t.id.trim())?t.id:`restored-${i}-${t.date}-${amount}`;return {id,type:t.type,amount,category:String(t.category||'Other'),description:String(t.description||'Imported transaction'),date:t.date,payment:String(t.payment||''),createdAt:Number(t.createdAt)||Date.now()+i};});
+    return {startingBalance,dailyLimit,balanceDate:data.balanceDate,transactions};
+  }
+  $('restoreFile').addEventListener('change',async e=>{const file=e.target.files&&e.target.files[0];if(!file)return;try{const parsed=JSON.parse(await file.text()),incoming=validateBackup(parsed);if(restoreMode==='replace'){if(!confirm(`Restore ${incoming.transactions.length} transactions and replace the current tracker data? This cannot be undone unless you have a backup.`))return;state=incoming;persist();render();setBackupStatus(`Restored ${state.transactions.length} transactions from ${file.name}.`);showToast('Backup restored.');}else{const existing=new Set(state.transactions.map(t=>t.id));let added=0;incoming.transactions.forEach(t=>{if(existing.has(t.id))return;existing.add(t.id);state.transactions.push(t);added++;});persist();render();setBackupStatus(`Merged ${added} new transaction${added===1?'':'s'}. Your current balance settings were kept.`);showToast('Backup entries merged.');}}catch(err){setBackupStatus(err instanceof SyntaxError?'That file is not valid JSON.':(err.message||'Could not restore this backup.'),true);}finally{$('restoreFile').value='';}});
+
+  const THEME_KEY='myMoneyTheme';
+  function applyTheme(theme){
+    document.documentElement.dataset.theme=theme;
+    const dark=theme==='dark';
+    $('themeLabel').textContent=dark?'Light mode':'Dark mode';
+    $('themeSymbol').textContent=dark?'☀':'☾';
+    $('themeToggle').setAttribute('aria-label',dark?'Switch to light mode':'Switch to dark mode');
+    $('themeToggle').setAttribute('aria-pressed',String(dark));
+    try{localStorage.setItem(THEME_KEY,theme);}catch(e){}
+    const meta=document.querySelector('meta[name="theme-color"]');
+    if(meta)meta.content=dark?'#0f1722':'#f5f7fb';
+  }
+  let savedTheme='light';
+  try{savedTheme=localStorage.getItem(THEME_KEY)||'light';}catch(e){}
+  applyTheme(savedTheme==='dark'?'dark':'light');
+  $('themeToggle').addEventListener('click',()=>applyTheme(document.documentElement.dataset.theme==='dark'?'light':'dark'));
+  $('txDate').value=todayISO();setCategoryOptions();render();
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js').catch(err => console.warn('Service worker registration failed:', err));
+  });
+}
+</script>
+</body>
+</html>
