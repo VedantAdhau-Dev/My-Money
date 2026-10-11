@@ -194,10 +194,19 @@ tbody tr:last-child td{border-bottom:0}
       <div class="stat-top"><span>Special spending this month</span><span class="stat-icon">☆</span></div>
       <div class="stat-value" id="specialMonth">₹0</div><div class="stat-note">Books, trips and one-off buys</div>
     </article>
+    <article class="card">
+      <div class="stat-top"><span>Buffer balance</span><span class="stat-icon">↔</span></div>
+      <div class="stat-value" id="bufferBalance">₹0</div><div class="stat-note" id="bufferNote">Extra spending to recover</div>
+    </article>
   </section>
 
   <section class="grid main-grid">
     <div class="left-stack">
+      <article class="card">
+        <div class="budget-head"><div><h2 class="section-title">Buffer money</h2><p id="bufferExplanation">Over-limit spending adds to your buffer. Spending under the daily limit reduces it.</p></div><span class="pill" id="bufferState">Balanced</span></div>
+        <div class="progress-track"><div class="progress-fill" id="bufferProgress"></div></div>
+        <div class="budget-foot"><span>Buffer owed: <strong id="bufferCardValue">₹0</strong></span><span id="bufferTodayEffect">Today: ₹0</span></div>
+      </article>
       <article class="card">
         <div class="budget-head"><div><h2 class="section-title">Today's daily budget</h2><p id="budgetSubtitle">Keep everyday spending within your limit.</p></div><span class="pill" id="budgetStatus">On track</span></div>
         <div class="progress-track"><div class="progress-fill" id="dailyProgress"></div></div>
@@ -269,185 +278,4 @@ tbody tr:last-child td{border-bottom:0}
       <div class="history-tools"><input id="historySearch" type="search" placeholder="Search history…"><select id="historyType"><option value="all">All types</option><option value="everyday">Everyday</option><option value="special">Special</option><option value="income">Money added</option></select><select id="historyMonth"><option value="all">All dates</option></select></div>
     </div>
     <div class="table-wrap">
-      <table><thead><tr><th>Transaction</th><th>Date</th><th>Type</th><th>Payment</th><th style="text-align:right">Amount</th><th></th></tr></thead><tbody id="historyBody"></tbody></table>
-      <div class="empty" id="historyEmpty" hidden>No transactions yet. Add your first one above.</div>
-    </div>
-  </section>
-  <p class="footer-note">Your data stays in this browser on this device. Export a backup regularly if you need to keep it safe.</p>
-</div>
-<div class="toast" id="toast"></div>
-<script>
-(() => {
-  const STORAGE_KEY = 'myMoneyTracker_v1';
-  const categories = {
-    everyday: ['Food & drinks','Transport','College','Snacks','Personal care','Other'],
-    special: ['Books','Travel / outing','Clothes','Electronics','Gifts','Other'],
-    income: ['Pocket money','Salary / stipend','Gift','Other money added']
-  };
-  const symbols = {'Food & drinks':'☕','Transport':'🚌','College':'▤','Snacks':'◉','Personal care':'✦','Books':'▣','Travel / outing':'↗','Clothes':'▤','Electronics':'▣','Gifts':'◇','Other':'•','Pocket money':'＋','Salary / stipend':'＋','Gift':'◇','Other money added':'＋'};
-  const $ = id => document.getElementById(id);
-  const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
-  const monthKey = d => d.slice(0,7);
-  const money = n => '₹' + Number(n || 0).toLocaleString('en-IN',{maximumFractionDigits:2,minimumFractionDigits:0});
-  const dateLabel = s => s ? new Date(s+'T12:00:00').toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-  const initialState = () => ({startingBalance:0,dailyLimit:200,balanceDate:todayISO(),transactions:[]});
-  let state;
-  try { state = JSON.parse(localStorage.getItem(STORAGE_KEY)) || initialState(); } catch { state = initialState(); }
-  if (!Array.isArray(state.transactions)) state.transactions = [];
-  if (typeof state.startingBalance !== 'number') state.startingBalance = Number(state.startingBalance)||0;
-  if (typeof state.dailyLimit !== 'number') state.dailyLimit = Number(state.dailyLimit)||0;
-  let activeKind = 'everyday';
-  let toastTimer;
-
-  function persist(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-  function showToast(message){ const t=$('toast'); t.textContent=message; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200); }
-  function setCategoryOptions(){
-    const list = categories[activeKind];
-    $('category').innerHTML = list.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-    document.querySelectorAll('.type-option').forEach(b=>b.classList.toggle('active',b.dataset.kind===activeKind));
-    $('description').placeholder = activeKind==='special' ? 'e.g. Bought a novel, day trip' : 'e.g. Lunch, bus ticket';
-  }
-  function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-  function signedAmount(t){ return t.type==='income' ? Number(t.amount) : -Number(t.amount); }
-  function isExpense(t){return t.type==='everyday'||t.type==='special';}
-  function allTimeBalance(){return Number(state.startingBalance)+state.transactions.filter(t=>t.date>=state.balanceDate).reduce((sum,t)=>sum+signedAmount(t),0);}
-  function expensesOn(date, type){return state.transactions.filter(t=>t.date===date && isExpense(t) && (!type||t.type===type)).reduce((s,t)=>s+Number(t.amount),0);}
-  function render(){
-    const today=todayISO(), month=monthKey(today);
-    $('todayLabel').textContent = new Date().toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
-    const balance=allTimeBalance(), spentToday=expensesOn(today,'everyday'), left=Number(state.dailyLimit)-spentToday;
-    $('balanceValue').textContent=money(balance);
-    $('allowanceLeft').textContent=money(left);
-    $('allowanceLeft').style.color=left<0?'var(--red)':'var(--ink)';
-    $('allowanceNote').textContent='Daily limit: '+money(state.dailyLimit);
-    $('spentToday').textContent=money(spentToday);
-    $('specialMonth').textContent=money(state.transactions.filter(t=>t.type==='special'&&monthKey(t.date)===month).reduce((s,t)=>s+Number(t.amount),0));
-    $('budgetSpentLabel').textContent=money(spentToday);
-    $('budgetTotalLabel').textContent=money(state.dailyLimit);
-    $('budgetSubtitle').textContent=left<0?'You are over your everyday limit. Keep an eye on the next purchase.':'Everyday spending only. Special expenses are tracked separately.';
-    const pct=state.dailyLimit>0?Math.min(100,spentToday/state.dailyLimit*100):(spentToday>0?100:0);
-    $('dailyProgress').style.width=pct+'%'; $('dailyProgress').classList.toggle('over',left<0);
-    $('budgetStatus').textContent=left<0?'Over limit':(left===0?'Limit reached':'On track');
-    $('budgetStatus').style.background=left<0?'#fff0f0':'var(--blue-light)';
-    $('budgetStatus').style.color=left<0?'var(--red)':'var(--blue)';
-    renderWeekly(today); renderCategories(month); renderHistory();
-    $('startingBalance').value=state.startingBalance;
-    $('dailyLimit').value=state.dailyLimit;
-    $('balanceDate').value=state.balanceDate||today;
-  }
-  function renderWeekly(today){
-    const base=new Date(today+'T12:00:00'); const days=[];
-    for(let i=6;i>=0;i--){const d=new Date(base);d.setDate(base.getDate()-i);const iso=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;days.push({iso,label:d.toLocaleDateString('en-IN',{weekday:'short'}),value:expensesOn(iso)});}
-    const max=Math.max(1,...days.map(d=>d.value));
-    $('weeklyChart').innerHTML=days.map(d=>`<div class="bar-col" title="${escapeHtml(dateLabel(d.iso))}: ${money(d.value)}"><div class="bar ${d.iso===today?'today':''}" style="height:${Math.max(d.value>0?4:2,d.value/max*100)}%"></div><span class="bar-label">${d.label}</span></div>`).join('');
-    $('weekTotal').textContent=money(days.reduce((s,d)=>s+d.value,0))+' spent';
-  }
-  function renderCategories(month){
-    const sums={};
-    state.transactions.filter(t=>isExpense(t)&&monthKey(t.date)===month).forEach(t=>{sums[t.category]=(sums[t.category]||0)+Number(t.amount);});
-    const rows=Object.entries(sums).sort((a,b)=>b[1]-a[1]); const max=rows.length?rows[0][1]:1;
-    $('categoryBreakdown').innerHTML=rows.map(([name,value],i)=>`<div class="category-row"><span class="dot" style="background:${['#2563eb','#16835d','#d97706','#8b5cf6','#0891b2','#dc5662'][i%6]}"></span><div><div class="cat-name">${escapeHtml(name)}</div><div class="cat-track"><div class="cat-fill" style="width:${value/max*100}%;background:${['#2563eb','#16835d','#d97706','#8b5cf6','#0891b2','#dc5662'][i%6]}"></div></div></div><span class="cat-amount">${money(value)}</span></div>`).join('');
-    $('categoryEmpty').hidden=rows.length>0;
-  }
-  function renderHistory(){
-    const search=$('historySearch').value.trim().toLowerCase(), type=$('historyType').value, month=$('historyMonth').value;
-    const months=[...new Set(state.transactions.map(t=>monthKey(t.date)))].sort().reverse();
-    const oldMonth=$('historyMonth').value;
-    $('historyMonth').innerHTML='<option value="all">All dates</option>'+months.map(m=>`<option value="${m}">${new Date(m+'-15T12:00:00').toLocaleDateString('en-IN',{month:'long',year:'numeric'})}</option>`).join('');
-    if(months.includes(oldMonth)) $('historyMonth').value=oldMonth;
-    const chosenMonth=$('historyMonth').value;
-    const list=[...state.transactions].sort((a,b)=>b.date.localeCompare(a.date)||b.createdAt-a.createdAt).filter(t=>{
-      const matchesType=type==='all'||t.type===type;
-      const matchesMonth=chosenMonth==='all'||monthKey(t.date)===chosenMonth;
-      const text=(t.description+' '+t.category+' '+(t.payment||'')).toLowerCase();
-      return matchesType&&matchesMonth&&text.includes(search);
-    });
-    $('historyCount').textContent=`${list.length} transaction${list.length===1?'':'s'} shown`;
-    $('historyBody').innerHTML=list.map(t=>{
-      const income=t.type==='income', kindLabel=income?'Money added':t.type==='special'?'Special':'Everyday';
-      return `<tr><td><div class="transaction"><div class="tx-icon">${symbols[t.category]||'•'}</div><div><div class="tx-title">${escapeHtml(t.description)}</div><div class="tx-sub">${escapeHtml(t.category)}</div></div></div></td><td>${dateLabel(t.date)}</td><td><span class="kind ${t.type}">${kindLabel}</span></td><td>${escapeHtml(t.payment||'—')}</td><td style="text-align:right" class="amount ${income?'plus':'minus'}">${income?'+':'−'}${money(t.amount)}</td><td><button class="icon-btn" data-delete="${t.id}" title="Delete transaction" aria-label="Delete transaction">✕</button></td></tr>`;
-    }).join('');
-    $('historyEmpty').hidden=list.length>0;
-  }
-  document.querySelectorAll('.type-option').forEach(b=>b.addEventListener('click',()=>{activeKind=b.dataset.kind;setCategoryOptions();}));
-  $('transactionForm').addEventListener('submit',e=>{
-    e.preventDefault();
-    const amount=Number($('amount').value), description=$('description').value.trim(), date=$('txDate').value;
-    if(!Number.isFinite(amount)||amount<=0){showToast('Enter an amount greater than zero.');return;}
-    if(!description||!date){showToast('Please complete the description and date.');return;}
-    if(date<state.balanceDate){showToast('This date is before your balance start date. Change the date or balance start date.');return;}
-    const tx={id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),type:activeKind,amount,category:$('category').value,description,date,payment:$('payment').value,createdAt:Date.now()};
-    state.transactions.push(tx);persist();$('transactionForm').reset();$('txDate').value=todayISO();setCategoryOptions();render();showToast('Transaction saved.');
-  });
-  $('clearForm').addEventListener('click',()=>setTimeout(()=>{$('txDate').value=todayISO();setCategoryOptions();},0));
-  $('historyBody').addEventListener('click',e=>{
-    const b=e.target.closest('[data-delete]');if(!b)return;
-    const tx=state.transactions.find(t=>t.id===b.dataset.delete);if(!tx)return;
-    if(confirm(`Delete "${tx.description}" (${money(tx.amount)}) from history?`)){state.transactions=state.transactions.filter(t=>t.id!==tx.id);persist();render();showToast('Transaction deleted.');}
-  });
-  $('settingsToggle').addEventListener('click',()=>{$('settingsCard').hidden=!$('settingsCard').hidden;if(!$('settingsCard').hidden)$('settingsCard').scrollIntoView({behavior:'smooth',block:'nearest'});});
-  $('saveSettings').addEventListener('click',()=>{
-    const balance=Number($('startingBalance').value),limit=Number($('dailyLimit').value),date=$('balanceDate').value;
-    if(!Number.isFinite(balance)||balance<0||!Number.isFinite(limit)||limit<0||!date){showToast('Enter a valid balance, limit and start date.');return;}
-    state.startingBalance=balance;state.dailyLimit=limit;state.balanceDate=date;persist();render();showToast('Budget settings saved.');
-  });
-  ['historySearch','historyType','historyMonth'].forEach(id=>$(id).addEventListener(id==='historySearch'?'input':'change',renderHistory));
-  // A small, explicit way to record new money without treating it as an expense.
-  const incomeButton=document.createElement('button');incomeButton.className='btn';incomeButton.textContent='+ Add money';incomeButton.id='addIncome';
-  $('settingsToggle').parentElement.insertBefore(incomeButton,$('settingsToggle'));
-  incomeButton.addEventListener('click',()=>{
-    const raw=prompt('How much money are you adding? (₹)');
-    if(raw===null)return;const amount=Number(raw);
-    if(!Number.isFinite(amount)||amount<=0){showToast('Enter a valid amount.');return;}
-    const description=(prompt('Source (e.g. pocket money, gift):')||'Money added').trim()||'Money added';
-    const category=categories.income.find(c=>c.toLowerCase()===description.toLowerCase())||'Other money added';
-    state.transactions.push({id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),type:'income',amount,category,description,date:todayISO(),payment:'',createdAt:Date.now()});
-    persist();render();showToast('Money added to your balance.');
-  });
-
-  function backupPayload(){return {app:'My Money Expense Tracker',formatVersion:1,exportedAt:new Date().toISOString(),data:{startingBalance:Number(state.startingBalance)||0,dailyLimit:Number(state.dailyLimit)||0,balanceDate:state.balanceDate||todayISO(),transactions:state.transactions}};}
-  function setBackupStatus(message,isError=false){const el=$('backupStatus');el.textContent=message;el.style.color=isError?'var(--red)':'var(--muted)';}
-  $('exportBackup').addEventListener('click',()=>{try{const blob=new Blob([JSON.stringify(backupPayload(),null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`my-money-backup-${todayISO()}.json`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);setBackupStatus('Backup downloaded. Keep the JSON file somewhere safe.');showToast('Backup downloaded.');}catch(err){setBackupStatus('Could not create a backup in this browser.',true);}});
-  let restoreMode='replace';
-  $('chooseRestore').addEventListener('click',()=>{restoreMode='replace';$('restoreFile').value='';$('restoreFile').click();});
-  $('importMerge').addEventListener('click',()=>{restoreMode='merge';$('restoreFile').value='';$('restoreFile').click();});
-  function validateBackup(parsed){
-    const data=parsed&&parsed.data?parsed.data:parsed;
-    if(!data||typeof data!=='object'||!Array.isArray(data.transactions))throw new Error('This file does not look like a My Money backup.');
-    const startingBalance=Number(data.startingBalance),dailyLimit=Number(data.dailyLimit);
-    if(!Number.isFinite(startingBalance)||startingBalance<0||!Number.isFinite(dailyLimit)||dailyLimit<0)throw new Error('The backup has an invalid balance or daily limit.');
-    if(typeof data.balanceDate!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(data.balanceDate))throw new Error('The backup is missing a valid balance start date.');
-    const allowed=['everyday','special','income'];
-    const transactions=data.transactions.map((t,i)=>{if(!t||typeof t!=='object')throw new Error(`Transaction ${i+1} is invalid.`);const amount=Number(t.amount);if(!Number.isFinite(amount)||amount<=0)throw new Error(`Transaction ${i+1} has an invalid amount.`);if(!allowed.includes(t.type))throw new Error(`Transaction ${i+1} has an unknown type.`);if(typeof t.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(t.date))throw new Error(`Transaction ${i+1} has an invalid date.`);const id=(typeof t.id==='string'&&t.id.trim())?t.id:`restored-${i}-${t.date}-${amount}`;return {id,type:t.type,amount,category:String(t.category||'Other'),description:String(t.description||'Imported transaction'),date:t.date,payment:String(t.payment||''),createdAt:Number(t.createdAt)||Date.now()+i};});
-    return {startingBalance,dailyLimit,balanceDate:data.balanceDate,transactions};
-  }
-  $('restoreFile').addEventListener('change',async e=>{const file=e.target.files&&e.target.files[0];if(!file)return;try{const parsed=JSON.parse(await file.text()),incoming=validateBackup(parsed);if(restoreMode==='replace'){if(!confirm(`Restore ${incoming.transactions.length} transactions and replace the current tracker data? This cannot be undone unless you have a backup.`))return;state=incoming;persist();render();setBackupStatus(`Restored ${state.transactions.length} transactions from ${file.name}.`);showToast('Backup restored.');}else{const existing=new Set(state.transactions.map(t=>t.id));let added=0;incoming.transactions.forEach(t=>{if(existing.has(t.id))return;existing.add(t.id);state.transactions.push(t);added++;});persist();render();setBackupStatus(`Merged ${added} new transaction${added===1?'':'s'}. Your current balance settings were kept.`);showToast('Backup entries merged.');}}catch(err){setBackupStatus(err instanceof SyntaxError?'That file is not valid JSON.':(err.message||'Could not restore this backup.'),true);}finally{$('restoreFile').value='';}});
-
-  const THEME_KEY='myMoneyTheme';
-  function applyTheme(theme){
-    document.documentElement.dataset.theme=theme;
-    const dark=theme==='dark';
-    $('themeLabel').textContent=dark?'Light mode':'Dark mode';
-    $('themeSymbol').textContent=dark?'☀':'☾';
-    $('themeToggle').setAttribute('aria-label',dark?'Switch to light mode':'Switch to dark mode');
-    $('themeToggle').setAttribute('aria-pressed',String(dark));
-    try{localStorage.setItem(THEME_KEY,theme);}catch(e){}
-    const meta=document.querySelector('meta[name="theme-color"]');
-    if(meta)meta.content=dark?'#0f1722':'#f5f7fb';
-  }
-  let savedTheme='light';
-  try{savedTheme=localStorage.getItem(THEME_KEY)||'light';}catch(e){}
-  applyTheme(savedTheme==='dark'?'dark':'light');
-  $('themeToggle').addEventListener('click',()=>applyTheme(document.documentElement.dataset.theme==='dark'?'light':'dark'));
-  $('txDate').value=todayISO();setCategoryOptions();render();
-})();
-</script>
-<script>
-if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./service-worker.js').catch(err => console.warn('Service worker registration failed:', err));
-  });
-}
-</script>
-</body>
-</html>
+      <table><thead><tr><th>Transaction</th><th>Date</th><th>Type</th><th>Payment</th><th style="text-align:right">Amount</th><th></th></tr></thead><tbody id="historyBody"></tbody></
